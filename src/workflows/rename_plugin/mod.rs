@@ -22,6 +22,8 @@ pub struct Params {
     pub plugin: String,
     /// The new name for the plugin.
     pub new_name: String,
+    /// Enable verbose logging.
+    pub verbose: bool,
 }
 
 /// Context needed to rename an Unreal Engine plugin.

@@ -26,6 +26,8 @@ pub struct Params {
     pub module: String,
     /// The new name for the module.
     pub new_name: String,
+    /// Enable verbose logging.
+    pub verbose: bool,
 }
 
 /// Context needed to rename an Unreal Engine module.

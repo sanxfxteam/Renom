@@ -9,6 +9,9 @@ use crate::workflows::{rename_module, rename_plugin, rename_project, rename_targ
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>,
+    /// Enable verbose logging to see detailed operation information
+    #[arg(long, short = 'v', global = true)]
+    pub verbose: bool,
 }
 
 #[derive(PartialEq, Debug, Subcommand)]
@@ -35,11 +38,12 @@ pub struct RenameProject {
     new_name: String,
 }
 
-impl From<RenameProject> for rename_project::Params {
-    fn from(params: RenameProject) -> Self {
-        Self {
-            project_root: params.project,
-            new_name: params.new_name,
+impl RenameProject {
+    pub fn into_params(self, verbose: bool) -> rename_project::Params {
+        rename_project::Params {
+            project_root: self.project,
+            new_name: self.new_name,
+            verbose,
         }
     }
 }
@@ -57,12 +61,13 @@ pub struct RenamePlugin {
     new_name: String,
 }
 
-impl From<RenamePlugin> for rename_plugin::Params {
-    fn from(params: RenamePlugin) -> Self {
-        Self {
-            project_root: params.project,
-            plugin: params.plugin,
-            new_name: params.new_name,
+impl RenamePlugin {
+    pub fn into_params(self, verbose: bool) -> rename_plugin::Params {
+        rename_plugin::Params {
+            project_root: self.project,
+            plugin: self.plugin,
+            new_name: self.new_name,
+            verbose,
         }
     }
 }
@@ -80,12 +85,13 @@ pub struct RenameTarget {
     new_name: String,
 }
 
-impl From<RenameTarget> for rename_target::Params {
-    fn from(params: RenameTarget) -> Self {
-        Self {
-            project_root: params.project,
-            target: params.target,
-            new_name: params.new_name,
+impl RenameTarget {
+    pub fn into_params(self, verbose: bool) -> rename_target::Params {
+        rename_target::Params {
+            project_root: self.project,
+            target: self.target,
+            new_name: self.new_name,
+            verbose,
         }
     }
 }
@@ -103,12 +109,13 @@ pub struct RenameModule {
     new_name: String,
 }
 
-impl From<RenameModule> for rename_module::Params {
-    fn from(params: RenameModule) -> Self {
-        Self {
-            project_root: params.project,
-            module: params.module,
-            new_name: params.new_name,
+impl RenameModule {
+    pub fn into_params(self, verbose: bool) -> rename_module::Params {
+        rename_module::Params {
+            project_root: self.project,
+            module: self.module,
+            new_name: self.new_name,
+            verbose,
         }
     }
 }

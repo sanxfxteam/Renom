@@ -3,6 +3,7 @@ use std::{ffi::OsStr, fs, path::PathBuf};
 use inquire::{validator::Validation, CustomUserError, Text};
 use regex::Regex;
 
+use crate::presentation::log;
 use super::Params;
 use indoc::indoc;
 
@@ -12,6 +13,7 @@ pub fn get_params_from_user() -> Result<Params, String> {
     Ok(Params {
         project_root,
         new_name: target_name,
+        verbose: log::is_verbose(),
     })
 }
 

@@ -8,6 +8,7 @@ use inquire::{validator::Validation, CustomUserError, Select, Text};
 use regex::Regex;
 use walkdir::WalkDir;
 
+use crate::presentation::log;
 use crate::unreal::{Module, ModuleType, Plugin};
 
 use super::Params;
@@ -26,6 +27,7 @@ pub fn get_params_from_user() -> Result<Params, String> {
         project_root,
         module: target_module.name,
         new_name: target_name,
+        verbose: log::is_verbose(),
     })
 }
 

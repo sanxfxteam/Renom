@@ -21,6 +21,8 @@ pub struct Params {
     pub target: String,
     /// The new name for the target.
     pub new_name: String,
+    /// Enable verbose logging.
+    pub verbose: bool,
 }
 
 /// Context needed to rename an Unreal Engine target.

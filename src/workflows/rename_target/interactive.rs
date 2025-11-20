@@ -7,6 +7,7 @@ use std::{
 use inquire::{validator::Validation, CustomUserError, Select, Text};
 use regex::Regex;
 
+use crate::presentation::log;
 use crate::unreal::Target;
 
 use super::Params;
@@ -20,6 +21,7 @@ pub fn get_params_from_user() -> Result<Params, String> {
         project_root,
         target: target_target.name,
         new_name: target_name,
+        verbose: log::is_verbose(),
     })
 }
 
