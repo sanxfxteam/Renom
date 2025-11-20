@@ -46,7 +46,9 @@ impl Change {
         let backup = Change::backup_file(&params.path, backup_dir)?;
         let target = params.path.clone();
         log::verbose_with_category("replace_in_file", "Reading file content");
-        let content = std::fs::read_to_string(&target)?;
+        // Read as raw bytes and convert to string with lossy UTF-8 conversion to support any encoding
+        let bytes = std::fs::read(&target)?;
+        let content = String::from_utf8_lossy(&bytes);
         log::verbose_with_category("replace_in_file", format!("File size: {} bytes", content.len()));
         let regex = Regex::new(&params.from).expect("regex should be valid");
         let content_after_replace = regex.replace_all(&content, params.to.as_str()).to_string();
@@ -137,7 +139,8 @@ impl Change {
 
     fn backup_file(file: &Path, backup_dir: &Path) -> io::Result<PathBuf> {
         log::verbose_with_category("backup", format!("Creating backup of {:?}", file));
-        let content = std::fs::read_to_string(file)?;
+        // Read as raw bytes to support any encoding
+        let content = std::fs::read(file)?;
         let hash = Sha256::digest(&content);
         let path = backup_dir.join(format!("{:x}", hash));
         log::verbose_with_category("backup", format!("Backup file hash: {:x}", hash));
