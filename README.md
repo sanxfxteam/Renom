@@ -56,6 +56,79 @@ This will pull and build Renom directly from
 should be able to find the installed executable at
 _C:/Users/{User}/.cargo/bin/renom.exe_.
 
+### Building from Source
+
+If you want to build Renom from source (for example, to try the latest features
+or contribute to development), follow these steps:
+
+#### 1. Install the Rust Toolchain
+
+First, install Rust using `rustup`, the official Rust installer and version manager:
+
+**Windows:**
+- Download and run [rustup-init.exe](https://rustup.rs/)
+- Follow the on-screen instructions (the default options work for most users)
+
+**macOS and Linux:**
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+After installation, restart your terminal or run:
+```shell
+source $HOME/.cargo/env
+```
+
+Verify the installation:
+```shell
+rustc --version
+cargo --version
+```
+
+#### 2. Clone the Repository
+
+```shell
+git clone https://github.com/UnrealisticDev/Renom.git
+cd Renom
+```
+
+#### 3. Build the Project
+
+Build Renom in release mode (optimized):
+```shell
+cargo build --release
+```
+
+The compilation may take a few minutes on the first run as it downloads and
+compiles dependencies.
+
+#### 4. Locate the Binary
+
+After a successful build, the executable will be located at:
+- **Windows:** `target/release/renom.exe`
+- **macOS/Linux:** `target/release/renom`
+
+#### 5. Run or Install
+
+You can run Renom directly:
+```shell
+./target/release/renom
+```
+
+Or copy it to a directory in your PATH for system-wide access:
+```shell
+# Linux/macOS example
+sudo cp target/release/renom /usr/local/bin/
+
+# Windows example (run as Administrator in PowerShell)
+# Copy-Item target\release\renom.exe C:\Windows\System32\
+```
+
+Alternatively, install it with Cargo (builds and installs from the current directory):
+```shell
+cargo install --path .
+```
+
 ## Usage
 
 Run the following command to see available options:
