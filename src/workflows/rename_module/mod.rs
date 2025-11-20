@@ -78,19 +78,33 @@ pub fn rename_module(params: Params) -> Result<(), String> {
 }
 
 fn validate_params(params: &Params) -> Result<(), String> {
+    log::verbose("Starting parameter validation");
+    log::verbose_with_category("validation", "Checking project root is a directory");
     validate_project_root_is_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains .uproject file");
     validate_project_root_contains_project_descriptor(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains Source folder");
     validate_project_root_contains_source_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Detecting project plugins");
     let project_plugins = detect_project_plugins(&params.project_root)?;
+    log::verbose_with_category("validation", format!("Found {} plugins", project_plugins.len()));
+    log::verbose_with_category("validation", "Detecting project and plugin modules");
     let modules = detect_project_modules(&params.project_root)?
         .into_iter()
         .chain(detect_plugin_modules(&project_plugins)?)
         .collect::<Vec<Module>>();
+    log::verbose_with_category("validation", format!("Found {} modules total", modules.len()));
+    log::verbose_with_category("validation", format!("Validating module '{}' exists", params.module));
     validate_module_exists(&params.module, &modules)?;
+    log::verbose_with_category("validation", "Validating new name is not empty");
     validate_new_name_is_not_empty(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name length");
     validate_new_name_is_concise(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name is unique");
     validate_new_name_is_unique(&params.new_name, &modules)?;
+    log::verbose_with_category("validation", "Validating new name is valid identifier");
     validate_new_name_is_valid_identifier(&params.new_name)?;
+    log::verbose("Parameter validation completed successfully");
     Ok(())
 }
 
@@ -176,6 +190,7 @@ fn validate_new_name_is_valid_identifier(new_name: &str) -> Result<(), String> {
 fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
     assert!(project_root.is_dir());
 
+    log::verbose_with_category("detect", format!("Searching for .uproject file in {:?}", project_root));
     let project_descriptor = fs::read_dir(project_root)
         .map_err(|err| err.to_string())?
         .filter_map(Result::ok)
@@ -183,6 +198,8 @@ fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
         .filter(|path| path.extension().map_or(false, |ext| ext == "uproject"))
         .next()
         .expect("project descriptor should exist");
+
+    log::verbose_with_category("detect", format!("Found project descriptor: {:?}", project_descriptor));
 
     project_descriptor
         .file_stem()
@@ -196,7 +213,8 @@ fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
 /// case of I/O issues.
 fn detect_project_plugins(project_root: &PathBuf) -> Result<Vec<Plugin>, String> {
     let plugins_dir = project_root.join("Plugins");
-    Ok(WalkDir::new(plugins_dir)
+    log::verbose_with_category("detect", format!("Searching for plugins in {:?}", plugins_dir));
+    let plugins: Vec<Plugin> = WalkDir::new(plugins_dir)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| {
@@ -215,7 +233,9 @@ fn detect_project_plugins(project_root: &PathBuf) -> Result<Vec<Plugin>, String>
                 .unwrap()
                 .to_owned(),
         })
-        .collect())
+        .collect();
+    log::verbose_with_category("detect", format!("Found {} plugins", plugins.len()));
+    Ok(plugins)
 }
 
 /// Detect all project modules in a project given the path to the project root
@@ -224,7 +244,8 @@ fn detect_project_plugins(project_root: &PathBuf) -> Result<Vec<Plugin>, String>
 fn detect_project_modules(project_root: &PathBuf) -> Result<Vec<Module>, String> {
     let source_dir = project_root.join("Source");
     assert!(source_dir.is_dir());
-    Ok(WalkDir::new(source_dir)
+    log::verbose_with_category("detect", format!("Searching for project modules in {:?}", source_dir));
+    let modules: Vec<Module> = WalkDir::new(source_dir)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| entry.path().is_dir() && dir_contains_module_descriptor(entry.path()))
@@ -234,7 +255,9 @@ fn detect_project_modules(project_root: &PathBuf) -> Result<Vec<Module>, String>
             r#type: ModuleType::Project,
             plugin: None,
         })
-        .collect())
+        .collect();
+    log::verbose_with_category("detect", format!("Found {} project modules", modules.len()));
+    Ok(modules)
 }
 
 /// Detect all plugin modules in a project given the list of project plugins.
@@ -326,23 +349,44 @@ fn find_headers_with_export_macro(module_root: &Path, module_name: &str) -> Vec<
 }
 
 fn gather_context(params: &Params) -> Result<Context, String> {
+    log::verbose("Gathering context");
     let project_root = params.project_root.clone();
+    log::verbose_with_category("context", format!("Project root: {:?}", project_root));
+    log::verbose_with_category("context", "Detecting project name");
     let project_name = detect_project_name(&project_root)?;
+    log::verbose_with_category("context", format!("Project name: {}", project_name));
+    log::verbose_with_category("context", "Detecting project plugins");
     let project_plugins = detect_project_plugins(&project_root)?;
+    log::verbose_with_category("context", "Detecting all modules");
     let modules = detect_project_modules(&project_root)?
         .into_iter()
         .chain(detect_plugin_modules(&project_plugins)?)
         .collect::<Vec<Module>>();
+    log::verbose_with_category("context", "Detecting project targets");
     let project_targets = detect_project_targets(&project_root)?;
+    log::verbose_with_category("context", format!("Found {} targets", project_targets.len()));
+    log::verbose_with_category("context", "Detecting project config files");
     let project_config_files = detect_project_config_files(&project_root)?;
+    log::verbose_with_category("context", format!("Found {} config files", project_config_files.len()));
+    log::verbose_with_category("context", format!("Finding target module: {}", params.module));
     let target_module = modules
         .iter()
         .find(|module| module.name == params.module)
         .unwrap()
         .clone();
+    log::verbose_with_category("context", format!("Module root: {:?}", target_module.root));
+    log::verbose_with_category("context", "Searching for implementing source file");
     let implementing_source = find_implementing_source(&target_module.root);
+    if let Some(ref source) = implementing_source {
+        log::verbose_with_category("context", format!("Found implementing source: {:?}", source));
+    } else {
+        log::verbose_with_category("context", "No implementing source found");
+    }
+    log::verbose_with_category("context", "Searching for headers with export macro");
     let headers_with_export_macro =
         find_headers_with_export_macro(&target_module.root, &target_module.name);
+    log::verbose_with_category("context", format!("Found {} headers with export macro", headers_with_export_macro.len()));
+    log::verbose("Context gathering completed");
 
     Ok(Context {
         project_root,
@@ -359,7 +403,9 @@ fn gather_context(params: &Params) -> Result<Context, String> {
 
 fn create_backup_dir(project_root: &Path) -> Result<PathBuf, String> {
     let backup_dir = project_root.join(".renom/backup");
+    log::verbose_with_category("backup", format!("Creating backup directory: {:?}", backup_dir));
     fs::create_dir_all(&backup_dir).map_err(|err| err.to_string())?;
+    log::verbose_with_category("backup", "Backup directory created successfully");
     Ok(backup_dir)
 }
 

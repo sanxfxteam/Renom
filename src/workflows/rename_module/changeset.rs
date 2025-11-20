@@ -7,6 +7,7 @@ use regex::Regex;
 
 use crate::{
     changes::{AppendIniEntry, Change, RenameFile, ReplaceInFile},
+    presentation::log,
     unreal::{Module, ModuleType, Plugin},
 };
 
@@ -32,28 +33,39 @@ pub fn generate_changeset(context: &Context) -> Vec<Change> {
         headers_with_export_macro,
     } = context;
 
+    log::verbose("Generating changeset");
     let mut changeset = vec![];
+    log::verbose_with_category("changeset", format!("Renaming build class: {} -> {}", old_name, new_name));
     changeset.push(rename_build_class(module_root, old_name, new_name));
+    log::verbose_with_category("changeset", format!("Renaming build file: {}.Build.cs -> {}.Build.cs", old_name, new_name));
     changeset.push(rename_build_file(module_root, old_name, new_name));
 
     if let Some(source_file) = source_with_implement_macro {
+        log::verbose_with_category("changeset", format!("Updating implement macro in {:?}", source_file));
         changeset.push(update_implement_macro(source_file, new_name));
+    } else {
+        log::verbose_with_category("changeset", "No implement macro to update");
     }
 
+    log::verbose_with_category("changeset", format!("Updating API macros in {} header files", headers_with_export_macro.len()));
     changeset.extend(
         headers_with_export_macro
             .iter()
             .map(|header_file| rename_api_macro_in_header(header_file, old_name, new_name)),
     );
 
+    log::verbose_with_category("changeset", format!("Renaming source subfolder to {}", new_name));
     changeset.push(rename_source_subfolder(module_root, new_name));
 
+    log::verbose_with_category("changeset", format!("Updating module references in {} target files", project_targets.len()));
     changeset.extend(
         project_targets
             .iter()
             .map(|target_file| replace_mod_reference_in_target(target_file, old_name, new_name)),
     );
 
+    let other_modules_count = modules.iter().filter(|m| &m.name != old_name).count();
+    log::verbose_with_category("changeset", format!("Updating module references in {} other module build files", other_modules_count));
     changeset.extend(
         modules
             .iter()
@@ -67,6 +79,7 @@ pub fn generate_changeset(context: &Context) -> Vec<Change> {
             }),
     );
 
+    log::verbose_with_category("changeset", format!("Updating module reference in {}.uproject", project_name));
     changeset.push(replace_mod_reference_in_project_descriptor(
         project_root,
         project_name,
@@ -75,6 +88,7 @@ pub fn generate_changeset(context: &Context) -> Vec<Change> {
     ));
 
     if let ModuleType::Plugin = r#type {
+        log::verbose_with_category("changeset", "Updating module reference in plugin descriptor");
         changeset.push(replace_mod_reference_in_plugin_descriptor(
             &plugin.as_ref().unwrap(),
             old_name,
@@ -82,15 +96,19 @@ pub fn generate_changeset(context: &Context) -> Vec<Change> {
         ));
     }
 
+    log::verbose_with_category("changeset", format!("Updating module references in {} config files", project_config_files.len()));
     changeset.extend(
         project_config_files
             .iter()
             .map(|config_file| replace_mod_references_in_config(config_file, old_name, new_name)),
     );
 
+    log::verbose_with_category("changeset", "Updating existing module redirects in DefaultEngine.ini");
     changeset.push(update_existing_redirects(project_root, old_name, new_name));
+    log::verbose_with_category("changeset", "Appending new module redirect to DefaultEngine.ini");
     changeset.push(append_mod_redirect(project_root, old_name, new_name));
 
+    log::verbose("Changeset generation completed");
     changeset
 }
 
