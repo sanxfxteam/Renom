@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::changes::{Change, RenameFile, SetIniEntry};
+use crate::presentation::log;
 
 use super::Context;
 
@@ -12,12 +13,18 @@ pub fn generate_changeset(context: &Context) -> Vec<Change> {
         new_name,
     } = context;
 
-    vec![
-        add_game_name_to_engine_config(project_root, new_name),
-        add_project_name_to_game_config(project_root, new_name),
-        rename_project_descriptor(project_root, old_name, new_name),
-        rename_project_root(project_root, new_name),
-    ]
+    log::verbose("Generating changeset");
+    log::verbose_with_category("changeset", "Adding GameName to DefaultEngine.ini");
+    let change1 = add_game_name_to_engine_config(project_root, new_name);
+    log::verbose_with_category("changeset", "Adding ProjectName to DefaultGame.ini");
+    let change2 = add_project_name_to_game_config(project_root, new_name);
+    log::verbose_with_category("changeset", format!("Renaming project descriptor: {}.uproject -> {}.uproject", old_name, new_name));
+    let change3 = rename_project_descriptor(project_root, old_name, new_name);
+    log::verbose_with_category("changeset", format!("Renaming project root directory to {}", new_name));
+    let change4 = rename_project_root(project_root, new_name);
+    log::verbose("Changeset generation completed");
+
+    vec![change1, change2, change3, change4]
 }
 
 fn rename_project_descriptor(project_root: &Path, old_name: &str, new_name: &str) -> Change {

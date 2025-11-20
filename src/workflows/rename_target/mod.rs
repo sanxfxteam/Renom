@@ -21,6 +21,8 @@ pub struct Params {
     pub target: String,
     /// The new name for the target.
     pub new_name: String,
+    /// Enable verbose logging.
+    pub verbose: bool,
 }
 
 /// Context needed to rename an Unreal Engine target.
@@ -61,15 +63,27 @@ pub fn rename_target(params: Params) -> Result<(), String> {
 }
 
 fn validate_params(params: &Params) -> Result<(), String> {
+    log::verbose("Starting parameter validation");
+    log::verbose_with_category("validation", "Checking project root is a directory");
     validate_project_root_is_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains .uproject file");
     validate_project_root_contains_project_descriptor(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains Source folder");
     validate_project_root_contains_source_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Detecting project targets");
     let targets = detect_project_targets(&params.project_root)?;
+    log::verbose_with_category("validation", format!("Found {} targets", targets.len()));
+    log::verbose_with_category("validation", format!("Validating target '{}' exists", params.target));
     validate_target_exists(&params.target, &targets)?;
+    log::verbose_with_category("validation", "Validating new name is not empty");
     validate_new_name_is_not_empty(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name length");
     validate_new_name_is_concise(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name is unique");
     validate_new_name_is_unique(&params.new_name, &targets)?;
+    log::verbose_with_category("validation", "Validating new name is valid identifier");
     validate_new_name_is_valid_identifier(&params.new_name)?;
+    log::verbose("Parameter validation completed successfully");
     Ok(())
 }
 
@@ -152,7 +166,8 @@ fn validate_new_name_is_valid_identifier(new_name: &str) -> Result<(), String> {
 fn detect_project_targets(project_root: &Path) -> Result<Vec<Target>, String> {
     let source_dir = project_root.join("Source");
     assert!(source_dir.is_dir());
-    Ok(fs::read_dir(&source_dir)
+    log::verbose_with_category("detect", format!("Searching for targets in {:?}", source_dir));
+    let targets: Vec<Target> = fs::read_dir(&source_dir)
         .map_err(|err| err.to_string())?
         .filter_map(Result::ok)
         .filter_map(|entry| {
@@ -167,17 +182,25 @@ fn detect_project_targets(project_root: &Path) -> Result<Vec<Target>, String> {
             name: target_name.clone(),
             path: source_dir.join(target_name).with_extension("Target.cs"),
         })
-        .collect())
+        .collect();
+    log::verbose_with_category("detect", format!("Found {} targets", targets.len()));
+    Ok(targets)
 }
 
 fn gather_context(params: &Params) -> Result<Context, String> {
+    log::verbose("Gathering context");
     let project_root = params.project_root.clone();
+    log::verbose_with_category("context", format!("Project root: {:?}", project_root));
+    log::verbose_with_category("context", "Detecting project targets");
     let project_targets = detect_project_targets(&project_root)?;
+    log::verbose_with_category("context", format!("Finding target: {}", params.target));
     let target = project_targets
         .iter()
         .find(|target| target.name == params.target)
         .unwrap()
         .clone();
+    log::verbose_with_category("context", format!("Target path: {:?}", target.path));
+    log::verbose("Context gathering completed");
 
     Ok(Context {
         project_root,
@@ -189,7 +212,9 @@ fn gather_context(params: &Params) -> Result<Context, String> {
 
 fn create_backup_dir(project_root: &Path) -> Result<PathBuf, String> {
     let backup_dir = project_root.join(".renom/backup");
+    log::verbose_with_category("backup", format!("Creating backup directory: {:?}", backup_dir));
     fs::create_dir_all(&backup_dir).map_err(|err| err.to_string())?;
+    log::verbose_with_category("backup", "Backup directory created successfully");
     Ok(backup_dir)
 }
 

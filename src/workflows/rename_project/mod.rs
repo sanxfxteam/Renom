@@ -19,6 +19,8 @@ pub struct Params {
     pub project_root: PathBuf,
     /// The new name for the project.
     pub new_name: String,
+    /// Enable verbose logging.
+    pub verbose: bool,
 }
 
 /// Context needed to rename an Unreal Engine project.
@@ -57,15 +59,27 @@ pub fn rename_project(params: Params) -> Result<(), String> {
 }
 
 fn validate_params(params: &Params) -> Result<(), String> {
+    log::verbose("Starting parameter validation");
+    log::verbose_with_category("validation", "Checking project root is not special directory");
     validate_project_root_is_not_special(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root is a directory");
     validate_project_root_is_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root is not current directory");
     validate_project_root_is_not_current_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains .uproject file");
     validate_project_root_contains_project_descriptor(&params.project_root)?;
+    log::verbose_with_category("validation", "Detecting current project name");
     let project_name = detect_project_name(&params.project_root)?;
+    log::verbose_with_category("validation", format!("Detected project name: {}", project_name));
+    log::verbose_with_category("validation", "Validating new name is not empty");
     validate_new_name_is_not_empty(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name is different from current name");
     validate_new_name_is_novel(&project_name, &params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name length");
     validate_new_name_is_concise(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name is valid identifier");
     validate_new_name_is_valid_identifier(&params.new_name)?;
+    log::verbose("Parameter validation completed successfully");
     Ok(())
 }
 
@@ -149,7 +163,12 @@ fn validate_new_name_is_valid_identifier(new_name: &str) -> Result<(), String> {
 }
 
 fn gather_context(params: &Params) -> Result<Context, String> {
+    log::verbose("Gathering context");
+    log::verbose_with_category("context", format!("Project root: {:?}", params.project_root));
     let project_name = detect_project_name(&PathBuf::from(&params.project_root))?;
+    log::verbose_with_category("context", format!("Detected project name: {}", project_name));
+    log::verbose_with_category("context", format!("New name: {}", params.new_name));
+    log::verbose("Context gathering completed");
     Ok(Context {
         project_root: params.project_root.clone(),
         project_name,
@@ -160,6 +179,7 @@ fn gather_context(params: &Params) -> Result<Context, String> {
 fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
     assert!(project_root.is_dir());
 
+    log::verbose_with_category("detect", format!("Searching for .uproject file in {:?}", project_root));
     let project_descriptor = fs::read_dir(project_root)
         .map_err(|err| err.to_string())?
         .filter_map(Result::ok)
@@ -167,6 +187,8 @@ fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
         .filter(|path| path.extension().map_or(false, |ext| ext == "uproject"))
         .next()
         .expect("project descriptor should exist");
+
+    log::verbose_with_category("detect", format!("Found project descriptor: {:?}", project_descriptor));
 
     project_descriptor
         .file_stem()
@@ -178,7 +200,9 @@ fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
 /// Create a directory to store backup files in
 fn create_backup_dir(project_root: &Path) -> Result<PathBuf, String> {
     let backup_dir = project_root.join(".renom/backup");
+    log::verbose_with_category("backup", format!("Creating backup directory: {:?}", backup_dir));
     fs::create_dir_all(&backup_dir).map_err(|err| err.to_string())?;
+    log::verbose_with_category("backup", "Backup directory created successfully");
     Ok(backup_dir)
 }
 

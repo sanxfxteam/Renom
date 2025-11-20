@@ -22,6 +22,8 @@ pub struct Params {
     pub plugin: String,
     /// The new name for the plugin.
     pub new_name: String,
+    /// Enable verbose logging.
+    pub verbose: bool,
 }
 
 /// Context needed to rename an Unreal Engine plugin.
@@ -64,15 +66,27 @@ pub fn rename_plugin(params: Params) -> Result<(), String> {
 }
 
 fn validate_params(params: &Params) -> Result<(), String> {
+    log::verbose("Starting parameter validation");
+    log::verbose_with_category("validation", "Checking project root is a directory");
     validate_project_root_is_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains .uproject file");
     validate_project_root_contains_project_descriptor(&params.project_root)?;
+    log::verbose_with_category("validation", "Checking project root contains Source folder");
     validate_project_root_contains_source_dir(&params.project_root)?;
+    log::verbose_with_category("validation", "Detecting project plugins");
     let plugins = detect_project_plugins(&params.project_root)?;
+    log::verbose_with_category("validation", format!("Found {} plugins", plugins.len()));
+    log::verbose_with_category("validation", format!("Validating plugin '{}' exists", params.plugin));
     validate_plugin_exists(&params.plugin, &plugins)?;
+    log::verbose_with_category("validation", "Validating new name is not empty");
     validate_new_name_is_not_empty(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name length");
     validate_new_name_is_concise(&params.new_name)?;
+    log::verbose_with_category("validation", "Validating new name is unique");
     validate_new_name_is_unique(&params.new_name, &plugins)?;
+    log::verbose_with_category("validation", "Validating new name is valid identifier");
     validate_new_name_is_valid_identifier(&params.new_name)?;
+    log::verbose("Parameter validation completed successfully");
     Ok(())
 }
 
@@ -153,13 +167,21 @@ fn validate_new_name_is_valid_identifier(new_name: &str) -> Result<(), String> {
 }
 
 fn gather_context(params: &Params) -> Result<Context, String> {
+    log::verbose("Gathering context");
+    log::verbose_with_category("context", format!("Project root: {:?}", params.project_root));
+    log::verbose_with_category("context", "Detecting project name");
     let project_name = detect_project_name(&params.project_root)?;
+    log::verbose_with_category("context", format!("Project name: {}", project_name));
+    log::verbose_with_category("context", "Detecting project plugins");
     let project_plugins = detect_project_plugins(&params.project_root)?;
+    log::verbose_with_category("context", format!("Finding plugin: {}", params.plugin));
     let plugin = project_plugins
         .iter()
         .find(|plugin| plugin.name == params.plugin)
         .unwrap()
         .clone();
+    log::verbose_with_category("context", format!("Plugin root: {:?}", plugin.root));
+    log::verbose("Context gathering completed");
 
     Ok(Context {
         project_root: params.project_root.clone(),
@@ -173,6 +195,7 @@ fn gather_context(params: &Params) -> Result<Context, String> {
 fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
     assert!(project_root.is_dir());
 
+    log::verbose_with_category("detect", format!("Searching for .uproject file in {:?}", project_root));
     let project_descriptor = fs::read_dir(project_root)
         .map_err(|err| err.to_string())?
         .filter_map(Result::ok)
@@ -180,6 +203,8 @@ fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
         .filter(|path| path.extension().map_or(false, |ext| ext == "uproject"))
         .next()
         .expect("project descriptor should exist");
+
+    log::verbose_with_category("detect", format!("Found project descriptor: {:?}", project_descriptor));
 
     project_descriptor
         .file_stem()
@@ -190,7 +215,8 @@ fn detect_project_name(project_root: &PathBuf) -> Result<String, String> {
 
 fn detect_project_plugins(project_root: &PathBuf) -> Result<Vec<Plugin>, String> {
     let plugins_dir = project_root.join("Plugins");
-    Ok(WalkDir::new(plugins_dir)
+    log::verbose_with_category("detect", format!("Searching for plugins in {:?}", plugins_dir));
+    let plugins: Vec<Plugin> = WalkDir::new(plugins_dir)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| {
@@ -209,12 +235,16 @@ fn detect_project_plugins(project_root: &PathBuf) -> Result<Vec<Plugin>, String>
                 .unwrap()
                 .to_owned(),
         })
-        .collect())
+        .collect();
+    log::verbose_with_category("detect", format!("Found {} plugins", plugins.len()));
+    Ok(plugins)
 }
 
 fn create_backup_dir(project_root: &Path) -> Result<PathBuf, String> {
     let backup_dir = project_root.join(".renom/backup");
+    log::verbose_with_category("backup", format!("Creating backup directory: {:?}", backup_dir));
     fs::create_dir_all(&backup_dir).map_err(|err| err.to_string())?;
+    log::verbose_with_category("backup", "Backup directory created successfully");
     Ok(backup_dir)
 }
 
